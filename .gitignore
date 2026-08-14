@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+chroma_db/
+*.log
+.venv/
+venv/
+.DS_Store
+cost_log.json
