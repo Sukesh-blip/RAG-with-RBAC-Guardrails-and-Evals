@@ -7,7 +7,6 @@ Most "RAG chatbot" projects stop at retrieval + generation. This one doesn't, be
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/Agents-LangGraph-1C3C3C.svg)](https://langchain-ai.github.io/langgraph/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
@@ -66,26 +65,6 @@ The design choice that matters most here: RBAC lives in the **retriever**, not t
 | Frontend | Streamlit | Role-select chat UI |
 | Deploy | Render + Streamlit Community Cloud | Free indefinitely, no surprise bill when a trial period ends |
 
-#Folder Structure
-
-rag-rbac-chatbot/
-├── ingestion/
-├── rbac/
-├── guardrails/
-├── rag/
-├── agents/
-├── app/
-├── evals/
-├── monitoring/
-├── data/
-│   ├── finance/
-│   ├── hr/
-│   ├── general/
-│   └── mixed/
-├── .github/workflows/
-├── requirements.txt
-├── .env.example
-└── README.md
 
 ## Dataset
 
@@ -177,9 +156,6 @@ The Finance-role refusal is the important one. It's not the model being polite �
 - [ ] **Phase 6** — deploy (Render + Streamlit Cloud)
 - [ ] **Phase 7** — demo polish
 
-## License
-
-MIT — see [LICENSE](LICENSE).
 
 ---
 
