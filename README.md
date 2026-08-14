@@ -54,37 +54,25 @@ cost tracking — all on a fully open-source, zero-cost stack.
 
 ## 🏗️ Architecture
 
-┌─────────────────┐ HTTP ┌──────────────────────────┐
-│ Streamlit UI │ ─────────────────▶ │ FastAPI │
-│ (role-select chat) │ │ │
-└─────────────────┘ │ POST /chat │
-│ POST /ingest │
-│ GET /eval/status │
-│ GET /cost/usage │
-└──────────┬───────────────┘
-│
-▼
-┌─────────────────────────────────────┐
-│ LangGraph Agent │
-│ │
-│ router_node ──▶ retrieve_node │
-│ (decompose, (RBAC-filtered │
-│ plan sub-queries) Chroma search) │
-│ │ │ │
-│ ▼ ▼ │
-│ critic_node ◀─── guardrail_node │
-│ (sufficient? (PII redact, │
-│ retry or answer) scope check) │
-└─────────────────┬─────────────────────┘
-│
-┌─────────────────────┼─────────────────────┐
-▼ ▼ ▼
-┌───────────┐ ┌────────────┐ ┌─────────────┐
-│ ChromaDB │ │ Groq │ │ Presidio │
-│ (vectors) │ │ (Llama/GPT- │ │ (PII guard) │
-│ │ │ OSS LLM) │ │ │
-└───────────┘ └────────────┘ └─────────────┘
+```mermaid
+flowchart TD
+    UI["Streamlit UI<br/>(role-select chat)"] -->|HTTP| API["FastAPI<br/>/chat · /ingest · /eval/status · /cost/usage"]
+    API --> Router["Router / Planner Node<br/>(decomposes query, plans sub-queries)"]
+    Router --> Retrieve["Retrieve Node<br/>(RBAC-filtered Chroma search)"]
+    Retrieve --> Critic["Critic Node<br/>(is context sufficient?)"]
+    Critic -->|retry| Retrieve
+    Critic -->|sufficient| Guardrail["Guardrail Node<br/>(PII redact, scope check)"]
+    Guardrail --> Answer["Final Answer"]
 
+    Retrieve -.-> Chroma[(ChromaDB)]
+    Answer -.-> Groq["Groq LLM<br/>(Llama 3.3 / GPT-OSS)"]
+    Guardrail -.-> Presidio["Presidio<br/>(PII guard)"]
+```
+
+**Key design decision:** RBAC is enforced at the **retriever**, not the prompt.
+Every chunk in Chroma carries a `role` metadata tag at ingestion time; the retriever
+filters on that tag *before* anything reaches the LLM — so there's no context for
+the model to leak in the first place.
 
 **Key design decision:** RBAC is enforced at the **retriever**, not the prompt.
 Every chunk in Chroma carries a `role` metadata tag at ingestion time; the retriever
@@ -113,18 +101,28 @@ the model to leak in the first place.
 
 ## 📂 Repo Structure
 
+```
 rag-rbac-chatbot/
-├── ingestion/ # doc loaders, chunking, embedding + upsert to Chroma
-├── rbac/ # role definitions, metadata tagging, access filter logic
-├── guardrails/ # PII redaction, out-of-scope classifier
-├── rag/ # retriever, prompt templates, base LCEL chain
-├── agents/ # LangGraph router + retrieval-critic nodes
-├── app/ # FastAPI backend + Streamlit frontend
-├── evals/ # Ragas test set + eval runner
-├── monitoring/ # token/cost logger
-├── data/ # synthetic role-tagged company dataset (18 docs)
-└── .github/workflows/ # CI eval pipeline
-
+│
+├── ingestion/          Chunking, embedding, upsert to Chroma
+├── rbac/                Role definitions, access filter logic
+├── guardrails/          PII redaction, out-of-scope classifier
+├── rag/                 Retriever, prompts, base LCEL chain
+├── agents/               LangGraph router + retrieval-critic nodes
+├── app/                  FastAPI backend + Streamlit frontend
+├── evals/                Ragas test set + eval runner
+├── monitoring/           Token/cost logger
+├── data/                 Synthetic role-tagged dataset (18 docs)
+│   ├── finance/
+│   ├── hr/
+│   ├── general/
+│   └── mixed/
+│
+├── .github/workflows/    CI eval pipeline
+├── requirements.txt
+├── .env.example
+└── README.md
+```
 
 ---
 
