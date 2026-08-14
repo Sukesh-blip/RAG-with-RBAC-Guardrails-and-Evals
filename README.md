@@ -66,23 +66,21 @@ The design choice that matters most here: RBAC lives in the **retriever**, not t
 | Frontend | Streamlit | Role-select chat UI |
 | Deploy | Render + Streamlit Community Cloud | Free indefinitely, no surprise bill when a trial period ends |
 
-## Repo layout
-
 rag-rbac-chatbot/
-├── ingestion/ chunking, embedding, upsert to Chroma
-├── rbac/ role definitions, access filter logic
-├── guardrails/ PII redaction, out-of-scope classifier
-├── rag/ retriever, prompts, base LCEL chain
-├── agents/ LangGraph router + retrieval-critic nodes
-├── app/ FastAPI backend + Streamlit frontend
-├── evals/ Ragas test set + eval runner
-├── monitoring/ token/cost logger
-├── data/ synthetic role-tagged dataset (18 docs)
-│ ├── finance/
-│ ├── hr/
-│ ├── general/
-│ └── mixed/
-├── .github/workflows/ CI eval pipeline
+├── ingestion/
+├── rbac/
+├── guardrails/
+├── rag/
+├── agents/
+├── app/
+├── evals/
+├── monitoring/
+├── data/
+│   ├── finance/
+│   ├── hr/
+│   ├── general/
+│   └── mixed/
+├── .github/workflows/
 ├── requirements.txt
 ├── .env.example
 └── README.md
