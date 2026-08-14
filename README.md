@@ -66,6 +66,8 @@ The design choice that matters most here: RBAC lives in the **retriever**, not t
 | Frontend | Streamlit | Role-select chat UI |
 | Deploy | Render + Streamlit Community Cloud | Free indefinitely, no surprise bill when a trial period ends |
 
+#Folder Structure
+
 rag-rbac-chatbot/
 ├── ingestion/
 ├── rbac/
@@ -84,7 +86,6 @@ rag-rbac-chatbot/
 ├── requirements.txt
 ├── .env.example
 └── README.md
-
 
 ## Dataset
 
