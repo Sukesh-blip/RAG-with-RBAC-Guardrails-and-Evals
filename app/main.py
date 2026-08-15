@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from rbac.access_control import VALID_ROLES
 from ingestion.loader import run_ingestion
-from rag.chain import ask
+from agents.graph import run_agent
 
 app = FastAPI(title="Agentic RAG RBAC Chatbot")
 
@@ -30,6 +30,9 @@ class ChatResponse(BaseModel):
     answer: str
     sources: list
     retrieved_count: int
+    out_of_scope: bool
+    pii_redacted: list
+    sub_queries: list
 
 
 @app.get("/")
@@ -54,7 +57,7 @@ def chat(request: ChatRequest):
             detail=f"Invalid role '{request.role}'. Valid roles: {sorted(VALID_ROLES)}",
         )
     try:
-        result = ask(request.role, request.query)
+        result = run_agent(request.role, request.query)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
