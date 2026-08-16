@@ -17,7 +17,7 @@ from guardrails.pii_guard import redact_pii
 from agents.router import plan_sub_queries
 from agents.critic import judge_sufficiency, reformulate_query, MAX_RETRIES
 
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
 class AgentState(TypedDict):
@@ -170,4 +170,47 @@ def run_agent(role: str, query: str) -> dict:
         "out_of_scope": False,
         "pii_redacted": final_state["pii_redacted"],
         "sub_queries": final_state["sub_queries"],
+    }
+
+
+def run_agent_with_context(role: str, query: str) -> dict:
+    """
+    Same as run_agent, but also returns raw retrieved context text and the
+    role tag each chunk carries. Used by the eval suite - Ragas needs actual
+    chunk content to check groundedness, and the RBAC regression check needs
+    the role tags to verify unauthorized content was never retrieved (not
+    just that *something* was retrieved).
+    """
+    initial_state = {
+        "role": role,
+        "original_query": query,
+        "active_query": query,
+        "sub_queries": [],
+        "retrieved_docs": [],
+        "sufficient": False,
+        "retry_count": 0,
+        "answer": "",
+        "out_of_scope": False,
+        "pii_redacted": [],
+        "sources": [],
+    }
+
+    final_state = _compiled_graph.invoke(initial_state)
+
+    if final_state.get("out_of_scope"):
+        return {
+            "answer": "I can only answer questions about company data. That question is outside what I have access to.",
+            "contexts": [],
+            "context_roles": [],
+            "out_of_scope": True,
+        }
+
+    contexts = [d.page_content for d in final_state["retrieved_docs"]]
+    context_roles = [d.metadata.get("role", "unknown") for d in final_state["retrieved_docs"]]
+
+    return {
+        "answer": final_state["answer"],
+        "contexts": contexts,
+        "context_roles": context_roles,
+        "out_of_scope": False,
     }
