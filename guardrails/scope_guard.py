@@ -10,12 +10,13 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 SCOPE_PROMPT = ChatPromptTemplate.from_template(
     """You are a scope classifier for an internal company chatbot. The chatbot
-only answers questions about company data: finance, HR, payroll, company
-policies, product roadmap, and general company information.
+only answers questions about company data: finance, HR, payroll, employee
+records and contact information, company policies, product roadmap, and
+general company information.
 
 Decide if the following question is IN_SCOPE (answerable from internal
 company documents) or OUT_OF_SCOPE (general knowledge, personal advice,
@@ -35,6 +36,15 @@ Answer: OUT_OF_SCOPE
 
 Question: What is our remote work policy?
 Answer: IN_SCOPE
+
+Question: What is an employee's contact information?
+Answer: IN_SCOPE
+
+Question: What is [employee name]'s phone number and email?
+Answer: IN_SCOPE
+
+Question: What is my personal phone number?
+Answer: OUT_OF_SCOPE
 
 Question: {query}
 Answer:"""

@@ -4,12 +4,22 @@ Applied to the final answer before it's returned - this is about minimizing
 what the chatbot exposes, separate from RBAC (which controls what documents
 are retrievable in the first place). A role being authorized to see a
 document doesn't mean every raw identifier in it belongs in a chat answer.
+
+Uses en_core_web_sm (not the larger en_core_web_lg) to keep memory usage
+low enough to run on Render's free tier (512MB RAM limit).
 """
 
 from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_anonymizer import AnonymizerEngine
 
-_analyzer = AnalyzerEngine()
+_nlp_config = {
+    "nlp_engine_name": "spacy",
+    "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+}
+_nlp_engine = NlpEngineProvider(nlp_configuration=_nlp_config).create_engine()
+
+_analyzer = AnalyzerEngine(nlp_engine=_nlp_engine)
 _anonymizer = AnonymizerEngine()
 
 # Entity types redacted from any chatbot answer, regardless of role.
