@@ -41,8 +41,9 @@ Answer:"""
 )
 
 
-def is_out_of_scope(query: str) -> bool:
+def is_out_of_scope(query: str, callbacks=None) -> bool:
     llm = ChatGroq(model=GROQ_MODEL, temperature=0)
     chain = SCOPE_PROMPT | llm | StrOutputParser()
-    result = chain.invoke({"query": query}).strip().upper()
+    config = {"callbacks": callbacks} if callbacks else {}
+    result = chain.invoke({"query": query}, config=config).strip().upper()
     return "OUT_OF_SCOPE" in result

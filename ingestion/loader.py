@@ -63,6 +63,15 @@ def run_ingestion() -> dict:
 
     embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 
+    # Clear any existing collection first so /ingest is safe to call
+    # repeatedly without silently duplicating chunks
+    import chromadb
+    client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
+    try:
+        client.delete_collection("company_docs")
+    except Exception:
+        pass  # collection didn't exist yet, nothing to clear
+
     vectorstore = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings,
@@ -70,17 +79,7 @@ def run_ingestion() -> dict:
         collection_name="company_docs",
     )
     vectorstore.persist()
-
-    role_counts = {}
-    for c in chunks:
-        r = c.metadata.get("role", "unknown")
-        role_counts[r] = role_counts.get(r, 0) + 1
-
-    return {
-        "documents_loaded": len(docs),
-        "chunks_created": len(chunks),
-        "chunks_by_role": role_counts,
-    }
+    ...
 
 
 if __name__ == "__main__":

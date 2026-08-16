@@ -1,11 +1,11 @@
 """
 LangGraph state machine wiring together: scope check, query planning,
-RBAC-filtered retrieval, retrieval self-correction, generation, and
-PII guardrails.
+RBAC-filtered retrieval, retrieval self-correction, generation, PII
+guardrails, and token/cost tracking across the whole request.
 """
 
 import os
-from typing import TypedDict, List, Dict, Any
+from typing import TypedDict, List, Dict, Any, Optional
 
 from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
@@ -16,6 +16,7 @@ from guardrails.scope_guard import is_out_of_scope
 from guardrails.pii_guard import redact_pii
 from agents.router import plan_sub_queries
 from agents.critic import judge_sufficiency, reformulate_query, MAX_RETRIES
+from monitoring.cost_tracker import TokenUsageCallback, log_usage
 
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
@@ -32,15 +33,21 @@ class AgentState(TypedDict):
     out_of_scope: bool
     pii_redacted: List[Dict]
     sources: List[Dict]
+    token_tracker: Optional[Any]
+
+
+def _cb(state: AgentState):
+    tracker = state.get("token_tracker")
+    return [tracker] if tracker else None
 
 
 def scope_node(state: AgentState) -> dict:
-    return {"out_of_scope": is_out_of_scope(state["original_query"])}
+    return {"out_of_scope": is_out_of_scope(state["original_query"], callbacks=_cb(state))}
 
 
 def router_node(state: AgentState) -> dict:
     return {
-        "sub_queries": plan_sub_queries(state["original_query"]),
+        "sub_queries": plan_sub_queries(state["original_query"], callbacks=_cb(state)),
         "active_query": state["original_query"],
     }
 
@@ -63,7 +70,7 @@ def retrieve_node(state: AgentState) -> dict:
 
 def critic_node(state: AgentState) -> dict:
     context = _format_docs(state["retrieved_docs"])
-    sufficient = judge_sufficiency(state["original_query"], context) if context else False
+    sufficient = judge_sufficiency(state["original_query"], context, callbacks=_cb(state)) if context else False
     return {"sufficient": sufficient}
 
 
@@ -75,7 +82,7 @@ def critic_router(state: AgentState) -> str:
 
 def prepare_retry_node(state: AgentState) -> dict:
     return {
-        "active_query": reformulate_query(state["original_query"]),
+        "active_query": reformulate_query(state["original_query"], callbacks=_cb(state)),
         "retry_count": state["retry_count"] + 1,
     }
 
@@ -88,7 +95,8 @@ def generate_node(state: AgentState) -> dict:
     if not context:
         answer = "I don't have access to information that answers this question."
     else:
-        answer = chain.invoke({"context": context, "question": state["original_query"]})
+        config = {"callbacks": _cb(state)} if _cb(state) else {}
+        answer = chain.invoke({"context": context, "question": state["original_query"]}, config=config)
 
     sources = [
         {"source": d.metadata.get("source"), "role": d.metadata.get("role")}
@@ -136,8 +144,8 @@ def build_graph():
 _compiled_graph = build_graph()
 
 
-def run_agent(role: str, query: str) -> dict:
-    initial_state = {
+def _initial_state(role: str, query: str, tracker) -> AgentState:
+    return {
         "role": role,
         "original_query": query,
         "active_query": query,
@@ -149,9 +157,16 @@ def run_agent(role: str, query: str) -> dict:
         "out_of_scope": False,
         "pii_redacted": [],
         "sources": [],
+        "token_tracker": tracker,
     }
 
-    final_state = _compiled_graph.invoke(initial_state)
+
+def run_agent(role: str, query: str) -> dict:
+    tracker = TokenUsageCallback()
+    final_state = _compiled_graph.invoke(_initial_state(role, query, tracker))
+
+    usage_summary = tracker.summary()
+    alerts = log_usage(role, query, usage_summary)
 
     if final_state.get("out_of_scope"):
         return {
@@ -161,6 +176,8 @@ def run_agent(role: str, query: str) -> dict:
             "out_of_scope": True,
             "pii_redacted": [],
             "sub_queries": [],
+            "token_usage": usage_summary,
+            "cost_alerts": alerts,
         }
 
     return {
@@ -170,32 +187,18 @@ def run_agent(role: str, query: str) -> dict:
         "out_of_scope": False,
         "pii_redacted": final_state["pii_redacted"],
         "sub_queries": final_state["sub_queries"],
+        "token_usage": usage_summary,
+        "cost_alerts": alerts,
     }
 
 
 def run_agent_with_context(role: str, query: str) -> dict:
     """
     Same as run_agent, but also returns raw retrieved context text and the
-    role tag each chunk carries. Used by the eval suite - Ragas needs actual
-    chunk content to check groundedness, and the RBAC regression check needs
-    the role tags to verify unauthorized content was never retrieved (not
-    just that *something* was retrieved).
+    role tag each chunk carries. Used by the eval suite.
     """
-    initial_state = {
-        "role": role,
-        "original_query": query,
-        "active_query": query,
-        "sub_queries": [],
-        "retrieved_docs": [],
-        "sufficient": False,
-        "retry_count": 0,
-        "answer": "",
-        "out_of_scope": False,
-        "pii_redacted": [],
-        "sources": [],
-    }
-
-    final_state = _compiled_graph.invoke(initial_state)
+    tracker = TokenUsageCallback()
+    final_state = _compiled_graph.invoke(_initial_state(role, query, tracker))
 
     if final_state.get("out_of_scope"):
         return {

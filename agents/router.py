@@ -25,10 +25,11 @@ Sub-questions:"""
 )
 
 
-def plan_sub_queries(query: str) -> list[str]:
+def plan_sub_queries(query: str, callbacks=None) -> list[str]:
     llm = ChatGroq(model=GROQ_MODEL, temperature=0)
     chain = ROUTER_PROMPT | llm | StrOutputParser()
-    result = chain.invoke({"query": query})
+    config = {"callbacks": callbacks} if callbacks else {}
+    result = chain.invoke({"query": query}, config=config)
     sub_queries = [
         line.strip("-• ").strip() for line in result.strip().split("\n") if line.strip()
     ]

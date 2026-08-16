@@ -8,3 +8,4 @@ venv/
 .DS_Store
 cost_log.json
 evals/results.json
+monitoring/usage_log.jsonl

@@ -13,7 +13,7 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-
+from monitoring.cost_tracker import get_usage_summary
 from rbac.access_control import VALID_ROLES
 from ingestion.loader import run_ingestion
 from agents.graph import run_agent
@@ -33,6 +33,8 @@ class ChatResponse(BaseModel):
     out_of_scope: bool
     pii_redacted: list
     sub_queries: list
+    token_usage: dict
+    cost_alerts: list
 
 
 @app.get("/")
@@ -61,3 +63,7 @@ def chat(request: ChatRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/cost/usage")
+def cost_usage():
+    return get_usage_summary()

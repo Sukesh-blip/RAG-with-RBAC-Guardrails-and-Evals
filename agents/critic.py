@@ -34,14 +34,16 @@ Original question: {question}"""
 )
 
 
-def judge_sufficiency(question: str, context: str) -> bool:
+def judge_sufficiency(question: str, context: str, callbacks=None) -> bool:
     llm = ChatGroq(model=GROQ_MODEL, temperature=0)
     chain = CRITIC_PROMPT | llm | StrOutputParser()
-    result = chain.invoke({"question": question, "context": context}).strip().upper()
+    config = {"callbacks": callbacks} if callbacks else {}
+    result = chain.invoke({"question": question, "context": context}, config=config).strip().upper()
     return result.startswith("SUFFICIENT")
 
 
-def reformulate_query(question: str) -> str:
+def reformulate_query(question: str, callbacks=None) -> str:
     llm = ChatGroq(model=GROQ_MODEL, temperature=0.3)
     chain = REFORMULATE_PROMPT | llm | StrOutputParser()
-    return chain.invoke({"question": question}).strip()
+    config = {"callbacks": callbacks} if callbacks else {}
+    return chain.invoke({"question": question}, config=config).strip()
