@@ -9,16 +9,25 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from guardrails.scope_guard import is_out_of_scope
-from guardrails.pii_guard import redact_pii
 
 from rbac.access_control import get_allowed_doc_roles
 
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
-_embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+# Lazy-loaded singleton - NOT created at import time. Loading this at
+# import time blocks the app from binding its port until the model
+# finishes downloading, which caused Render's port-scan to time out.
+_embeddings = None
+
+
+def get_embeddings():
+    global _embeddings
+    if _embeddings is None:
+        _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    return _embeddings
+
 
 PROMPT = ChatPromptTemplate.from_template(
     """You are an internal company assistant. Answer the question using ONLY
@@ -43,7 +52,7 @@ def get_retriever(user_role: str, k: int = 4):
 
     vectorstore = Chroma(
         persist_directory=CHROMA_PERSIST_DIR,
-        embedding_function=_embeddings,
+        embedding_function=get_embeddings(),
         collection_name="company_docs",
     )
 
@@ -56,16 +65,6 @@ def get_retriever(user_role: str, k: int = 4):
 
 
 def ask(user_role: str, query: str) -> dict:
-    # Guardrail 1: out-of-scope check, before spending a retrieval call
-    if is_out_of_scope(query):
-        return {
-            "answer": "I can only answer questions about company data. That question is outside what I have access to.",
-            "sources": [],
-            "retrieved_count": 0,
-            "out_of_scope": True,
-            "pii_redacted": [],
-        }
-
     retriever = get_retriever(user_role)
     retrieved_docs = retriever.invoke(query)
 
@@ -78,20 +77,11 @@ def ask(user_role: str, query: str) -> dict:
         | StrOutputParser()
     )
 
-    raw_answer = chain.invoke(query)
-
-    # Guardrail 2: redact PII from the final answer before it goes out
-    guard_result = redact_pii(raw_answer)
+    answer = chain.invoke(query)
 
     sources = [
         {"source": d.metadata.get("source"), "role": d.metadata.get("role")}
         for d in retrieved_docs
     ]
 
-    return {
-        "answer": guard_result["redacted_text"],
-        "sources": sources,
-        "retrieved_count": len(retrieved_docs),
-        "out_of_scope": False,
-        "pii_redacted": guard_result["entities_found"],
-    }
+    return {"answer": answer, "sources": sources, "retrieved_count": len(retrieved_docs)}
