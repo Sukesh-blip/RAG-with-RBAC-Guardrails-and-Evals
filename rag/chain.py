@@ -3,7 +3,7 @@ RBAC-filtered retriever + base LCEL RAG chain using Groq.
 """
 
 import os
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -13,7 +13,7 @@ from langchain_core.runnables import RunnablePassthrough
 from rbac.access_control import get_allowed_doc_roles
 
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Lazy-loaded singleton - NOT created at import time. Loading this at
@@ -25,7 +25,7 @@ _embeddings = None
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+        _embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
     return _embeddings
 
 

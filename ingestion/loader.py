@@ -2,19 +2,24 @@
 Ingestion pipeline: reads data/ folder, parses YAML frontmatter,
 chunks documents, embeds them, and upserts into Chroma with
 role metadata attached to every chunk.
+
+Uses fastembed (ONNX-based) instead of sentence-transformers, since
+sentence-transformers pulls in the full PyTorch library (~300-400MB just
+to import), which alone was enough to exceed Render's 512MB free-tier
+memory limit and cause the service to crash-loop.
 """
 
 import os
 import yaml
 from pathlib import Path
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
 
 def parse_frontmatter(raw_text: str) -> tuple[dict, str]:
@@ -61,7 +66,7 @@ def run_ingestion() -> dict:
     docs = load_documents()
     chunks = chunk_documents(docs)
 
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
 
     # Clear any existing collection first so /ingest is safe to call
     # repeatedly without silently duplicating chunks
@@ -79,7 +84,17 @@ def run_ingestion() -> dict:
         collection_name="company_docs",
     )
     vectorstore.persist()
-    ...
+
+    role_counts = {}
+    for c in chunks:
+        r = c.metadata.get("role", "unknown")
+        role_counts[r] = role_counts.get(r, 0) + 1
+
+    return {
+        "documents_loaded": len(docs),
+        "chunks_created": len(chunks),
+        "chunks_by_role": role_counts,
+    }
 
 
 if __name__ == "__main__":

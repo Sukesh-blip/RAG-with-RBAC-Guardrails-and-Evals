@@ -29,3 +29,4 @@ requests==2.32.3
 
 # Utilities
 pyyaml==6.0.2
+fastembed==0.4.1
