@@ -25,7 +25,7 @@ _embeddings = None
 def get_embeddings():
     global _embeddings
     if _embeddings is None:
-        _embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
+        _embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL, threads=1)
     return _embeddings
 
 

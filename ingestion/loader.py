@@ -66,7 +66,7 @@ def run_ingestion() -> dict:
     docs = load_documents()
     chunks = chunk_documents(docs)
 
-    embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL)
+    embeddings = FastEmbedEmbeddings(model_name=EMBEDDING_MODEL, threads=1)
 
     # Clear any existing collection first so /ingest is safe to call
     # repeatedly without silently duplicating chunks
