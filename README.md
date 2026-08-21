@@ -7,7 +7,7 @@ Most "RAG chatbot" projects stop at retrieval + generation. This one doesn't, be
 [![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/Agents-LangGraph-1C3C3C.svg)](https://langchain-ai.github.io/langgraph/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 
 ---
 
@@ -69,6 +69,7 @@ flowchart TD
 
 | Deploy | Render (Docker) | See Phase 6 for the full story, including known limitations |
 
+## Repo Structure
 
 | Folder | Purpose |
 |---|---|
@@ -179,9 +180,3 @@ Final README polish beyond this build log, plus recorded/screenshotted proof mom
 ---
 
 Built by [Sukesh Biradar](https://github.com/Sukesh-blip)
-
-
-
-
-
-## Repo Structure
